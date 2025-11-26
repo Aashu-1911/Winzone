@@ -1,5 +1,5 @@
 import User from '../models/user.model.js';
-import crypto from 'crypto';
+import otpService from '../services/otp.service.js';
 import { generateToken } from '../utils/jwt.util.js';
 
 /**
@@ -9,13 +9,16 @@ import { generateToken } from '../utils/jwt.util.js';
  */
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password, phone, collegeName, gamingHandle, role, profileImage } = req.body;
+    const { name, email, password, phone, collegeName, role, profileImage } = req.body;
 
-    // Validation - required fields per milestone
-    if (!name || !email || !password || !phone || !collegeName || !gamingHandle) {
+    // Determine user role (default to 'player')
+    const userRole = role || 'player';
+
+    // Validation - required fields
+    if (!name || !email || !password || !phone || !collegeName) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide name, email, password, phone, collegeName and gamingHandle',
+        message: 'Please provide name, email, password, phone, and collegeName',
       });
     }
 
@@ -28,42 +31,29 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // Create email verification token
-    const verificationToken = crypto.randomBytes(20).toString('hex');
-    const tokenExpiry = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
-
-    // Create new user (do NOT auto-login)
+    // Create new user (auto-verified, no OTP needed)
     const user = await User.create({
       name,
       email,
       password,
       phone,
-      gamingHandle,
-      role: role || 'player', // Default to player if not specified
+      role: userRole,
       collegeName: collegeName || '',
       profileImage: profileImage || '',
-      emailVerified: false,
+      emailVerified: true, // Auto-verified
       isApprovedByAdmin: false,
-      isEligible: false,
-      paymentCompleted: false,
-      emailVerificationToken: verificationToken,
-      emailVerificationTokenExpires: new Date(tokenExpiry),
+      isEligible: userRole === 'organizer' ? true : false, // Organizers are eligible by default
+      paymentCompleted: userRole === 'organizer' ? true : false, // Organizers don't need payment
     });
-
-    // Log verification link to console (developer/test flow)
-    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
-    console.log(`[Auth] Email verification link for ${email}: ${verificationUrl}`);
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully. Please verify your email using the link sent (logged to server).',
+      message: 'User registered successfully. You can now login.',
       data: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        collegeName: user.collegeName,
-        profileImage: user.profileImage,
       },
     });
   } catch (error) {
@@ -178,3 +168,133 @@ export const getCurrentUser = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    Verify OTP after registration
+ * @route   POST /api/auth/verify-otp
+ * @access  Public
+ */
+export const verifyOTPController = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and OTP',
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Check if already verified
+    if (user.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already verified',
+      });
+    }
+
+    // Verify OTP
+    const verification = otpService.verifyOTP(user.otpCode, user.otpExpires, otp);
+    
+    if (!verification.valid) {
+      return res.status(400).json({
+        success: false,
+        message: verification.message,
+      });
+    }
+
+    // Mark email as verified and clear OTP
+    user.emailVerified = true;
+    user.otpCode = '';
+    user.otpExpires = null;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP verified successfully. You can now login.',
+      data: {
+        id: user._id,
+        email: user.email,
+        emailVerified: true,
+      },
+    });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying OTP',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Resend OTP for verification
+ * @route   POST /api/auth/resend-otp
+ * @access  Public
+ */
+export const resendOTPController = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email',
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Check if already verified
+    if (user.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already verified',
+      });
+    }
+
+    // Generate new OTP
+    const otp = otpService.generateOTP();
+    const otpExpiry = otpService.getOTPExpiry();
+
+    user.otpCode = otp;
+    user.otpExpires = otpExpiry;
+    await user.save();
+
+    // Log OTP to console
+    console.log(`[Auth] New OTP for ${email}: ${otp} (expires in 10 minutes)`);
+
+    res.status(200).json({
+      success: true,
+      message: 'New OTP sent successfully (check server console).',
+      data: {
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error resending OTP',
+      error: error.message,
+    });
+  }
+};
+

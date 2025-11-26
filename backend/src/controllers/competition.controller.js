@@ -1,5 +1,6 @@
 import Competition from '../models/competition.model.js';
 import User from '../models/user.model.js';
+import CompetitionRegistration from '../models/competitionRegistration.model.js';
 
 /**
  * @desc    Create a new competition
@@ -16,16 +17,27 @@ export const createCompetition = async (req, res) => {
       startTime,
       endTime,
       maxPlayers,
+      teamSize,
+      gameRoomID,
+      gameRoomPassword,
       isCollegeRestricted,
       prizePool,
       rules,
     } = req.body;
 
     // Validation
-    if (!title || !description || !gameType || !startTime || !endTime || !maxPlayers) {
+    if (!title || !description || !gameType || !startTime || !endTime || !maxPlayers || !teamSize) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: title, description, gameType, startTime, endTime, maxPlayers',
+        message: 'Please provide all required fields: title, description, gameType, startTime, endTime, maxPlayers, teamSize',
+      });
+    }
+
+    // Validate team size
+    if (![1, 2, 3, 4].includes(parseInt(teamSize))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Team size must be 1, 2, 3, or 4',
       });
     }
 
@@ -56,8 +68,11 @@ export const createCompetition = async (req, res) => {
       entryFee: entryFee || 0,
       startTime: start,
       endTime: end,
-      organizerId: req.user._id,
+      organizerId: req.user._id || req.user.id,
       maxPlayers,
+      teamSize: parseInt(teamSize),
+      gameRoomID: gameRoomID || '',
+      gameRoomPassword: gameRoomPassword || '',
       isCollegeRestricted: isCollegeRestricted || false,
       prizePool: prizePool || 0,
       rules: rules || '',
@@ -73,9 +88,14 @@ export const createCompetition = async (req, res) => {
     });
   } catch (error) {
     console.error('Create competition error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
     res.status(500).json({
       success: false,
-      message: 'Error creating competition',
+      message: error.message || 'Error creating competition',
       error: error.message,
     });
   }
@@ -354,6 +374,15 @@ export const getAllCompetitions = async (req, res) => {
  */
 export const registerForCompetition = async (req, res) => {
   try {
+    const { inGamePlayerID, teamName, teamMembers } = req.body;
+
+    if (!inGamePlayerID) {
+      return res.status(400).json({
+        success: false,
+        message: 'In-game player ID is required',
+      });
+    }
+
     const competition = await Competition.findById(req.params.id);
 
     if (!competition) {
@@ -380,41 +409,76 @@ export const registerForCompetition = async (req, res) => {
     }
 
     // Check if user is already registered
-    if (competition.hasParticipant(req.user._id)) {
+    const existingRegistration = await CompetitionRegistration.findOne({
+      competitionId: req.params.id,
+      playerId: req.user._id,
+    });
+
+    if (existingRegistration) {
       return res.status(400).json({
         success: false,
         message: 'You are already registered for this competition',
       });
     }
 
-    // Check if user has enough balance for entry fee
-    const user = await User.findById(req.user._id);
-    if (user.walletBalance < competition.entryFee) {
-      return res.status(400).json({
-        success: false,
-        message: `Insufficient wallet balance. Required: ₹${competition.entryFee}, Available: ₹${user.walletBalance}`,
-      });
+    // Validate team details if team size > 1
+    if (competition.teamSize > 1) {
+      if (!teamName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Team name is required for team competitions',
+        });
+      }
+
+      if (!teamMembers || !Array.isArray(teamMembers)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Team members array is required',
+        });
+      }
+
+      if (teamMembers.length !== competition.teamSize) {
+        return res.status(400).json({
+          success: false,
+          message: `This competition requires exactly ${competition.teamSize} team members (including leader). You provided ${teamMembers.length}.`,
+        });
+      }
+
+      // Validate each team member has name and inGameID
+      for (let i = 0; i < teamMembers.length; i++) {
+        const member = teamMembers[i];
+        if (!member.name || !member.inGameID) {
+          return res.status(400).json({
+            success: false,
+            message: `Team member ${i + 1} must have both name and in-game ID`,
+          });
+        }
+      }
     }
 
-    // Deduct entry fee from user's wallet
-    user.walletBalance -= competition.entryFee;
-    await user.save();
+    // Create registration with pending status
+    const registration = await CompetitionRegistration.create({
+      competitionId: req.params.id,
+      playerId: req.user._id,
+      inGamePlayerID,
+      teamName: teamName || '',
+      teamMembers: teamMembers || [],
+      paymentStatus: 'completed', // Since using dummy payment
+      status: 'pending',
+    });
 
-    // Add user to participants
+    // Add user to competition participants
     competition.participants.push(req.user._id);
     await competition.save();
 
-    // Populate for response
-    await competition.populate('organizerId', 'name email collegeName');
-    await competition.populate('participants', 'name email collegeName');
+    // Populate registration details
+    await registration.populate('playerId', 'name email phone collegeName');
+    await registration.populate('competitionId', 'title gameType startTime endTime');
 
     res.status(200).json({
       success: true,
-      message: 'Successfully registered for competition',
-      data: {
-        competition,
-        newWalletBalance: user.walletBalance,
-      },
+      message: 'Successfully registered for competition. Waiting for organizer verification.',
+      data: registration,
     });
   } catch (error) {
     console.error('Register for competition error:', error);
@@ -542,24 +606,202 @@ export const getMyRegistrations = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // Find all competitions where the user is a participant
-    const competitions = await Competition.find({
-      participants: userId,
+    // Find all registrations for this player
+    const registrations = await CompetitionRegistration.find({
+      playerId: userId,
     })
-      .populate('organizerId', 'name email collegeName')
-      .sort({ startTime: 1 }); // Sort by start time (earliest first)
+      .populate('competitionId', 'title description gameType startTime endTime entryFee prizePool maxPlayers status')
+      .populate({
+        path: 'competitionId',
+        populate: {
+          path: 'organizerId',
+          select: 'name email collegeName'
+        }
+      })
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       message: 'Registered competitions fetched successfully',
-      data: competitions,
-      count: competitions.length,
+      data: registrations,
+      count: registrations.length,
     });
   } catch (error) {
     console.error('Get my registrations error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching registered competitions',
+      message: 'Error fetching registrations',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Get all registrations for a competition (Organizer only)
+ * @route   GET /api/competitions/:id/registrations
+ * @access  Private (Organizer only)
+ */
+export const getCompetitionRegistrations = async (req, res) => {
+  try {
+    const competition = await Competition.findById(req.params.id);
+
+    if (!competition) {
+      return res.status(404).json({
+        success: false,
+        message: 'Competition not found',
+      });
+    }
+
+    // Check if user is the organizer
+    if (competition.organizerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to view these registrations',
+      });
+    }
+
+    // Get all registrations for this competition
+    const registrations = await CompetitionRegistration.find({
+      competitionId: req.params.id,
+    })
+      .populate('playerId', 'name email phone collegeName')
+      .populate('verifiedBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    // Count by status
+    const stats = {
+      total: registrations.length,
+      pending: registrations.filter(r => r.status === 'pending').length,
+      verified: registrations.filter(r => r.status === 'verified').length,
+      rejected: registrations.filter(r => r.status === 'rejected').length,
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Registrations fetched successfully',
+      data: registrations,
+      stats,
+    });
+  } catch (error) {
+    console.error('Get competition registrations error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching registrations',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Verify/Accept a player registration
+ * @route   PUT /api/competitions/:id/registrations/:registrationId/verify
+ * @access  Private (Organizer only)
+ */
+export const verifyPlayerRegistration = async (req, res) => {
+  try {
+    const { battleRoomID, battleRoomPassword, timeSlot } = req.body;
+
+    const registration = await CompetitionRegistration.findById(req.params.registrationId)
+      .populate('competitionId')
+      .populate('playerId', 'name email phone');
+
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registration not found',
+      });
+    }
+
+    // Check if user is the organizer
+    if (registration.competitionId.organizerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to verify this registration',
+      });
+    }
+
+    // Update registration with battle credentials
+    // Use competition's game room credentials if not explicitly provided
+    const competition = registration.competitionId;
+    
+    registration.isVerified = true;
+    registration.status = 'verified';
+    registration.verifiedAt = new Date();
+    registration.verifiedBy = req.user._id;
+    
+    // Use provided credentials or fall back to competition's default room credentials
+    registration.battleRoomID = battleRoomID || competition.gameRoomID || '';
+    registration.battleRoomPassword = battleRoomPassword || competition.gameRoomPassword || '';
+    registration.timeSlot = timeSlot || '';
+
+    await registration.save();
+
+    await registration.populate('verifiedBy', 'name email');
+
+    res.status(200).json({
+      success: true,
+      message: 'Player verified successfully. Battle credentials assigned.',
+      data: registration,
+    });
+  } catch (error) {
+    console.error('Verify player error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying player',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Reject a player registration
+ * @route   PUT /api/competitions/:id/registrations/:registrationId/reject
+ * @access  Private (Organizer only)
+ */
+export const rejectPlayerRegistration = async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    const registration = await CompetitionRegistration.findById(req.params.registrationId)
+      .populate('competitionId')
+      .populate('playerId', 'name email');
+
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registration not found',
+      });
+    }
+
+    // Check if user is the organizer
+    if (registration.competitionId.organizerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to reject this registration',
+      });
+    }
+
+    // Update registration status
+    registration.status = 'rejected';
+    registration.rejectionReason = reason || 'Invalid in-game player ID';
+    await registration.save();
+
+    // Remove from competition participants
+    await Competition.findByIdAndUpdate(
+      registration.competitionId._id,
+      { $pull: { participants: registration.playerId._id } }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Registration rejected',
+      data: registration,
+    });
+  } catch (error) {
+    console.error('Reject player error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error rejecting player',
       error: error.message,
     });
   }

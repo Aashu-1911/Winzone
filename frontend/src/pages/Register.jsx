@@ -2,12 +2,10 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { useAuth } from '../context/AuthContext';
 import { registerUser } from '../services/authService';
 
 function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -16,6 +14,7 @@ function Register() {
     confirmPassword: '',
     role: 'player',
     collegeName: '',
+    phone: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -30,7 +29,7 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.email || !formData.password) {
+    if (!formData.name || !formData.email || !formData.password || !formData.phone) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -55,21 +54,13 @@ function Register() {
         password: formData.password,
         role: formData.role,
         collegeName: formData.collegeName,
+        phone: formData.phone,
       });
 
-      if (data.success && data.token && data.user) {
-        // Registration successful
-        register(data.user, data.token);
-        
-        // Show success toast
-        toast.success(`Welcome to WinZone, ${data.user.name}! 🎮`);
-        
-        // Redirect based on role
-        if (data.user.role === 'organizer') {
-          navigate('/organizer-dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+      if (data.success) {
+        // Registration successful - redirect to login
+        toast.success('Registration successful! Please login to continue.');
+        navigate('/login');
       } else {
         toast.error(data.message || 'Registration failed');
       }
@@ -102,6 +93,26 @@ function Register() {
         className="max-w-2xl w-full relative z-10"
       >
         <div className="text-center mb-8">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.5, type: "spring" }}
+            className="flex justify-center mb-6"
+          >
+            <motion.img
+              src="/images/winzone.png"
+              alt="WinZone Logo"
+              animate={{ 
+                filter: [
+                  'drop-shadow(0 0 20px rgba(34, 197, 94, 0.6))',
+                  'drop-shadow(0 0 30px rgba(14, 165, 233, 0.6))',
+                  'drop-shadow(0 0 20px rgba(34, 197, 94, 0.6))',
+                ]
+              }}
+              transition={{ duration: 3, repeat: Infinity }}
+              className="h-64 w-64 object-contain"
+            />
+          </motion.div>
           <motion.div
             animate={{
               textShadow: ['0 0 20px #22c55e', '0 0 30px #0ea5e9', '0 0 20px #22c55e'],
@@ -214,6 +225,21 @@ function Register() {
                 onChange={handleChange}
                 className="w-full px-4 py-3 bg-dark-surface border border-cyber-green-500/30 rounded-lg focus:ring-2 focus:ring-cyber-green-500 focus:border-cyber-green-500 transition-all duration-300 text-white font-rajdhani placeholder-gray-500"
                 placeholder="Enter your college"
+              />
+            </div>
+
+            <div>
+              <label className="block font-rajdhani text-sm font-semibold text-gray-300 mb-2">
+                📱 Phone Number *
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className="w-full px-4 py-3 bg-dark-surface border border-cyber-green-500/30 rounded-lg focus:ring-2 focus:ring-cyber-green-500 focus:border-cyber-green-500 transition-all duration-300 text-white font-rajdhani placeholder-gray-500"
+                placeholder="Enter your phone number"
+                required
               />
             </div>
 

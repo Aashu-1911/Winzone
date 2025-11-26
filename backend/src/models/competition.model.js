@@ -66,6 +66,24 @@ const competitionSchema = new mongoose.Schema(
       min: [2, 'Minimum 2 players required'],
       max: [1000, 'Maximum 1000 players allowed'],
     },
+    teamSize: {
+      type: Number,
+      required: [true, 'Team size is required'],
+      enum: [1, 2, 3, 4],
+      default: 1,
+      min: [1, 'Minimum team size is 1'],
+      max: [4, 'Maximum team size is 4'],
+    },
+    gameRoomID: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    gameRoomPassword: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     participants: [
       {
         type: mongoose.Schema.Types.ObjectId,

@@ -3,6 +3,8 @@ import {
   registerUser,
   loginUser,
   getCurrentUser,
+  verifyOTPController,
+  resendOTPController,
 } from '../controllers/auth.controller.js';
 import authMiddleware from '../middleware/auth.middleware.js';
 
@@ -31,5 +33,21 @@ router.post('/login', loginUser);
  * @header  Authorization: Bearer <token>
  */
 router.get('/me', authMiddleware, getCurrentUser);
+
+/**
+ * @route   POST /api/auth/verify-otp
+ * @desc    Verify OTP after registration
+ * @access  Public
+ * @body    { email, otp }
+ */
+router.post('/verify-otp', verifyOTPController);
+
+/**
+ * @route   POST /api/auth/resend-otp
+ * @desc    Resend OTP for verification
+ * @access  Public
+ * @body    { email }
+ */
+router.post('/resend-otp', resendOTPController);
 
 export default router;

@@ -34,9 +34,9 @@ const Footer = () => {
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
               <img 
-                src="/logo.png" 
+                src="/images/winzone.png" 
                 alt="WinZone Logo" 
-                className="h-10 w-10 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]"
+                className="h-28 w-28 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]"
               />
               <span className="font-orbitron text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">
                 WINZONE

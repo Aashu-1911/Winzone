@@ -1,29 +1,55 @@
-import { useState } from 'react';
-import { X, CreditCard, Wallet, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import competitionService from '../services/competitionService';
 import { useAuth } from '../context/AuthContext';
 
 const TournamentRegistrationModal = ({ competition, isOpen, onClose, onSuccess }) => {
   const { user } = useAuth();
-  const [formData, setFormData] = useState({
-    playerName: user?.name || '',
-    email: user?.email || '',
-    phone: '',
-    gameId: '',
-    teamName: '',
-  });
-  const [paymentMethod, setPaymentMethod] = useState('wallet');
+  const [inGamePlayerID, setInGamePlayerID] = useState('');
+  const [teamName, setTeamName] = useState('');
+  const [teamMembers, setTeamMembers] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
 
+  const teamSize = competition?.teamSize || 1;
+  const isTeamCompetition = teamSize > 1;
+
+  // Initialize team members when modal opens or teamSize changes
+  useEffect(() => {
+    if (isOpen && isTeamCompetition && competition) {
+      const initialMembers = Array.from({ length: teamSize - 1 }, (_, i) => ({
+        name: '',
+        inGameID: '',
+        role: `Player ${i + 1}`
+      }));
+      setTeamMembers(initialMembers);
+    }
+  }, [isOpen, isTeamCompetition, teamSize, competition]);
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setInGamePlayerID('');
+      setTeamName('');
+      setTeamMembers([]);
+      setError('');
+      setIsProcessing(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen || !competition) return null;
 
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  const handleClose = () => {
+    if (!isProcessing) {
+      onClose();
+    }
+  };
+
+  const handleTeamMemberChange = (index, field, value) => {
+    const updatedMembers = [...teamMembers];
+    updatedMembers[index][field] = value;
+    setTeamMembers(updatedMembers);
   };
 
   const handleSubmit = async (e) => {
@@ -31,269 +57,288 @@ const TournamentRegistrationModal = ({ competition, isOpen, onClose, onSuccess }
     setError('');
     setIsProcessing(true);
 
-    // Validate form
-    if (!formData.playerName || !formData.email || !formData.phone || !formData.gameId) {
-      setError('Please fill in all required fields');
+    // Validate in-game player ID
+    if (!inGamePlayerID.trim()) {
+      setError('Please enter your in-game player ID');
       setIsProcessing(false);
       return;
+    }
+
+    // Validate team details for team competitions
+    if (isTeamCompetition) {
+      if (!teamName.trim()) {
+        setError('Please enter a team name');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Validate all team members have required fields
+      for (let i = 0; i < teamMembers.length; i++) {
+        if (!teamMembers[i].name.trim() || !teamMembers[i].inGameID.trim()) {
+          setError(`Please fill in all details for ${teamMembers[i].role}`);
+          setIsProcessing(false);
+          return;
+        }
+      }
     }
 
     try {
       const loadingToast = toast.loading('Registering for tournament...');
 
-      // Register for competition using existing API
-      const result = await competitionService.registerForCompetition(competition._id);
+      // Prepare registration data
+      const registrationData = {
+        inGamePlayerID: inGamePlayerID.trim(),
+        ...(isTeamCompetition && {
+          teamName: teamName.trim(),
+          teamMembers: [
+            // Include leader as first team member
+            {
+              name: user?.name || 'Leader',
+              inGameID: inGamePlayerID.trim(),
+              role: 'Leader'
+            },
+            // Include other team members
+            ...teamMembers.map(member => ({
+              name: member.name.trim(),
+              inGameID: member.inGameID.trim(),
+              role: member.role
+            }))
+          ]
+        })
+      };
+
+      console.log('Registration data:', {
+        competitionId: competition._id,
+        teamSize: competition.teamSize,
+        isTeamCompetition,
+        dataBeingSent: registrationData
+      });
+
+      // Register for competition
+      const result = await competitionService.registerForCompetition(competition._id, registrationData);
 
       toast.dismiss(loadingToast);
 
       if (result.success) {
         toast.success(result.message || 'Successfully registered! 🎮');
 
-        // Call success callback
+        // Call success callback first
         if (onSuccess) {
-          onSuccess();
+          await onSuccess();
         }
 
-        // Close modal
-        onClose();
+        // Close modal after a brief delay to show success message
+        setTimeout(() => {
+          onClose();
+        }, 500);
+      } else {
+        setError(result.message || 'Registration failed');
       }
     } catch (err) {
       toast.dismiss();
       console.error('Registration error:', err);
-      setError(err.message || 'Registration failed. Please try again.');
+      const errorMessage = err.message || err.response?.data?.message || 'Registration failed. Please try again.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="glass rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-cyber-blue-500/50 shadow-neon-blue">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 glass-darker border-b border-cyber-blue-500/50 px-6 py-4 flex justify-between items-center backdrop-blur-xl">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Tournament Registration</h2>
-            <p className="text-sm text-gray-600 mt-1">{competition.title}</p>
+            <h2 className="text-2xl font-bold font-orbitron bg-gradient-to-r from-cyber-green-500 to-cyber-blue-500 bg-clip-text text-transparent">
+              Tournament Registration
+            </h2>
+            <p className="font-rajdhani text-sm text-gray-400 mt-1">{competition.title}</p>
           </div>
           <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={handleClose}
+            className="text-gray-400 hover:text-cyber-green-500 text-2xl leading-none transition-colors"
             disabled={isProcessing}
           >
-            <X size={24} />
+            ×
           </button>
         </div>
 
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Tournament Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-900 mb-2">Tournament Details</h3>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="glass-darker border border-cyber-blue-500/30 rounded-xl p-4">
+            <h3 className="font-orbitron font-semibold text-cyber-blue-500 mb-3">Tournament Details</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm font-rajdhani">
               <div>
-                <span className="text-gray-600">Game Type:</span>
-                <span className="ml-2 font-medium text-gray-900">{competition.gameType}</span>
+                <span className="text-gray-400">Game Type:</span>
+                <span className="ml-2 font-medium text-white">{competition.gameType}</span>
               </div>
               <div>
-                <span className="text-gray-600">Entry Fee:</span>
-                <span className="ml-2 font-medium text-green-600">₹{competition.entryFee}</span>
+                <span className="text-gray-400">Entry Fee:</span>
+                <span className="ml-2 font-medium text-cyber-green-500">₹{competition.entryFee}</span>
               </div>
               <div>
-                <span className="text-gray-600">Start Time:</span>
-                <span className="ml-2 font-medium text-gray-900">
-                  {new Date(competition.startTime).toLocaleString()}
+                <span className="text-gray-400">Team Size:</span>
+                <span className="ml-2 font-medium text-white">
+                  {teamSize} {teamSize === 1 ? 'Solo' : 'Players per team'}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Available Slots:</span>
-                <span className="ml-2 font-medium text-gray-900">{competition.availableSlots}</span>
+                <span className="text-gray-400">Start Time:</span>
+                <span className="ml-2 font-medium text-white text-xs">
+                  {new Date(competition.startTime).toLocaleString()}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-              <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="glass-darker border border-red-500/50 rounded-xl p-4 flex items-start gap-3">
+              <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+              <p className="font-rajdhani text-sm text-red-400">{error}</p>
             </div>
           )}
 
-          {/* Player Information */}
+          {/* Leader Information */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900 text-lg">Player Information</h3>
+            <h3 className="font-orbitron font-semibold text-white text-lg flex items-center gap-2">
+              <span className="text-cyber-green-500">👑</span> Leader Information
+            </h3>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Player Name <span className="text-red-500">*</span>
+              <label className="block font-rajdhani text-sm font-medium text-gray-300 mb-2">
+                Your Name
               </label>
               <input
                 type="text"
-                name="playerName"
-                value={formData.playerName}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your full name"
-                required
-                disabled={isProcessing}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="your@email.com"
-                  required
-                  disabled={isProcessing}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="+91 9876543210"
-                  required
-                  disabled={isProcessing}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Game ID/Username <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="gameId"
-                value={formData.gameId}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Your in-game ID"
-                required
-                disabled={isProcessing}
+                value={user?.name || ''}
+                className="w-full px-4 py-2.5 bg-dark-surface border border-cyber-green-500/30 rounded-lg font-rajdhani text-white placeholder-gray-500 focus:outline-none focus:border-cyber-green-500 transition-colors"
+                disabled
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Team Name <span className="text-gray-400">(Optional)</span>
+              <label className="block font-rajdhani text-sm font-medium text-gray-300 mb-2">
+                In-Game Player ID <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                name="teamName"
-                value={formData.teamName}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter team name if applicable"
+                value={inGamePlayerID}
+                onChange={(e) => setInGamePlayerID(e.target.value)}
+                className="w-full px-4 py-2.5 bg-dark-surface border border-cyber-green-500/30 rounded-lg font-rajdhani text-white placeholder-gray-500 focus:outline-none focus:border-cyber-green-500 transition-colors"
+                placeholder="Enter your in-game ID"
+                required
                 disabled={isProcessing}
               />
             </div>
           </div>
 
-          {/* Payment Method */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900 text-lg">Payment Method</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Wallet Payment */}
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('wallet')}
-                className={`p-4 border-2 rounded-lg text-left transition-all ${
-                  paymentMethod === 'wallet'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                disabled={isProcessing}
-              >
-                <div className="flex items-start gap-3">
-                  <Wallet className={paymentMethod === 'wallet' ? 'text-blue-600' : 'text-gray-400'} size={24} />
-                  <div>
-                    <h4 className="font-medium text-gray-900">Wallet</h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Pay from your WinZone wallet
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      (Not functional yet - Coming soon)
-                    </p>
-                  </div>
-                </div>
-              </button>
+          {/* Team Information (only for team competitions) */}
+          {isTeamCompetition && (
+            <div className="space-y-4">
+              <h3 className="font-orbitron font-semibold text-white text-lg flex items-center gap-2">
+                <span className="text-cyber-blue-500">👥</span> Team Information
+              </h3>
 
-              {/* Card Payment */}
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('card')}
-                className={`p-4 border-2 rounded-lg text-left transition-all ${
-                  paymentMethod === 'card'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                disabled={isProcessing}
-              >
-                <div className="flex items-start gap-3">
-                  <CreditCard className={paymentMethod === 'card' ? 'text-blue-600' : 'text-gray-400'} size={24} />
-                  <div>
-                    <h4 className="font-medium text-gray-900">Card/UPI</h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Pay via Credit/Debit Card or UPI
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      (Not functional yet - Coming soon)
-                    </p>
+              <div>
+                <label className="block font-rajdhani text-sm font-medium text-gray-300 mb-2">
+                  Team Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-dark-surface border border-cyber-blue-500/30 rounded-lg font-rajdhani text-white placeholder-gray-500 focus:outline-none focus:border-cyber-blue-500 transition-colors"
+                  placeholder="Enter your team name"
+                  required
+                  disabled={isProcessing}
+                />
+              </div>
+
+              {/* Team Members */}
+              <div className="space-y-4">
+                <p className="font-rajdhani text-sm text-gray-400">
+                  Add details for all {teamSize - 1} team member{teamSize - 1 !== 1 ? 's' : ''}
+                </p>
+                
+                {teamMembers.map((member, index) => (
+                  <div key={index} className="glass-darker border border-cyber-purple-500/30 rounded-xl p-4">
+                    <h4 className="font-rajdhani font-semibold text-cyber-purple-500 mb-3">
+                      {member.role}
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block font-rajdhani text-sm font-medium text-gray-300 mb-2">
+                          Player Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={member.name}
+                          onChange={(e) => handleTeamMemberChange(index, 'name', e.target.value)}
+                          className="w-full px-4 py-2.5 bg-dark-surface border border-cyber-purple-500/30 rounded-lg font-rajdhani text-white placeholder-gray-500 focus:outline-none focus:border-cyber-purple-500 transition-colors"
+                          placeholder="Enter player name"
+                          required
+                          disabled={isProcessing}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-rajdhani text-sm font-medium text-gray-300 mb-2">
+                          In-Game ID <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={member.inGameID}
+                          onChange={(e) => handleTeamMemberChange(index, 'inGameID', e.target.value)}
+                          className="w-full px-4 py-2.5 bg-dark-surface border border-cyber-purple-500/30 rounded-lg font-rajdhani text-white placeholder-gray-500 focus:outline-none focus:border-cyber-purple-500 transition-colors"
+                          placeholder="Enter in-game ID"
+                          required
+                          disabled={isProcessing}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Payment Summary */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Payment Summary</h3>
-            <div className="space-y-2 text-sm">
+          <div className="glass-darker border border-cyber-green-500/30 rounded-xl p-4">
+            <h3 className="font-orbitron font-semibold text-cyber-green-500 mb-3">Payment Summary</h3>
+            <div className="space-y-2 font-rajdhani text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Entry Fee</span>
-                <span className="font-medium text-gray-900">₹{competition.entryFee}</span>
+                <span className="text-gray-400">Entry Fee</span>
+                <span className="font-medium text-white">₹{competition.entryFee}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Platform Fee</span>
-                <span className="font-medium text-gray-900">₹0</span>
+                <span className="text-gray-400">Platform Fee</span>
+                <span className="font-medium text-white">₹0</span>
               </div>
-              <div className="border-t border-gray-300 pt-2 flex justify-between">
-                <span className="font-semibold text-gray-900">Total Amount</span>
-                <span className="font-bold text-green-600 text-lg">₹{competition.entryFee}</span>
+              <div className="border-t border-cyber-green-500/30 pt-2 flex justify-between">
+                <span className="font-semibold text-white">Total Amount</span>
+                <span className="font-bold text-cyber-green-500 text-lg">₹{competition.entryFee}</span>
               </div>
             </div>
           </div>
 
-          {/* Submit Button */}
+          {/* Submit Buttons */}
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              onClick={handleClose}
+              className="flex-1 px-6 py-3 glass border border-gray-500/30 text-gray-300 rounded-lg hover:border-gray-400 transition-colors font-rajdhani font-medium"
               disabled={isProcessing}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-cyber-green-500 to-cyber-blue-500 text-white rounded-lg hover:shadow-neon-green transition-all font-rajdhani font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isProcessing}
             >
               {isProcessing ? (
@@ -311,10 +356,9 @@ const TournamentRegistrationModal = ({ competition, isOpen, onClose, onSuccess }
           </div>
 
           {/* Disclaimer */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-            <p className="text-xs text-yellow-800">
-              <strong>Note:</strong> Payment functionality is not yet implemented. This is a preview of the registration form. 
-              Actual payment integration will be added in the next phase.
+          <div className="glass-darker border border-yellow-500/30 rounded-lg p-3">
+            <p className="font-rajdhani text-xs text-yellow-400">
+              <strong>Note:</strong> By registering, you agree to the tournament rules. The organizer will verify your registration details before confirming your participation.
             </p>
           </div>
         </form>

@@ -10,6 +10,9 @@ import {
   unregisterFromCompetition,
   getCompetitionParticipants,
   getMyRegistrations,
+  getCompetitionRegistrations,
+  verifyPlayerRegistration,
+  rejectPlayerRegistration,
 } from '../controllers/competition.controller.js';
 import authMiddleware from '../middleware/auth.middleware.js';
 import { roleMiddleware } from '../middleware/role.middleware.js';
@@ -106,6 +109,42 @@ router.get(
   authMiddleware,
   roleMiddleware('organizer', 'admin'),
   getCompetitionParticipants
+);
+
+/**
+ * @route   GET /api/competitions/:id/registrations
+ * @desc    Get all registrations with detailed info (Organizer only)
+ * @access  Private (Organizer only)
+ */
+router.get(
+  '/:id/registrations',
+  authMiddleware,
+  roleMiddleware('organizer', 'admin'),
+  getCompetitionRegistrations
+);
+
+/**
+ * @route   PUT /api/competitions/:id/registrations/:registrationId/verify
+ * @desc    Verify/Accept a player registration and assign battle credentials
+ * @access  Private (Organizer only)
+ */
+router.put(
+  '/:id/registrations/:registrationId/verify',
+  authMiddleware,
+  roleMiddleware('organizer', 'admin'),
+  verifyPlayerRegistration
+);
+
+/**
+ * @route   PUT /api/competitions/:id/registrations/:registrationId/reject
+ * @desc    Reject a player registration
+ * @access  Private (Organizer only)
+ */
+router.put(
+  '/:id/registrations/:registrationId/reject',
+  authMiddleware,
+  roleMiddleware('organizer', 'admin'),
+  rejectPlayerRegistration
 );
 
 /**

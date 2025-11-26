@@ -1,35 +1,9 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { getAllCompetitions } from '../services/competitionService';
 
 const Home = () => {
   const { isAuthenticated } = useAuth();
-  const [liveCompetitions, setLiveCompetitions] = useState([]);
-  const [loadingCompetitions, setLoadingCompetitions] = useState(true);
-
-  // Fetch live competitions on mount
-  useEffect(() => {
-    fetchLiveCompetitions();
-  }, []);
-
-  const fetchLiveCompetitions = async () => {
-    try {
-      const data = await getAllCompetitions();
-      if (data.success && Array.isArray(data.data)) {
-        // Get only first 6 upcoming/ongoing competitions
-        const live = data.data
-          .filter(comp => comp.status === 'upcoming' || comp.status === 'ongoing')
-          .slice(0, 6);
-        setLiveCompetitions(live);
-      }
-    } catch (error) {
-      console.error('Failed to fetch competitions:', error);
-    } finally {
-      setLoadingCompetitions(false);
-    }
-  };
 
   const features = [
     {
@@ -104,7 +78,7 @@ const Home = () => {
               className="flex justify-center mb-8"
             >
               <motion.img
-                src="/logo.png"
+                src="/images/winzone.png"
                 alt="WinZone Logo"
                 animate={{ 
                   rotate: [0, 5, -5, 0],
@@ -115,7 +89,7 @@ const Home = () => {
                   ]
                 }}
                 transition={{ duration: 4, repeat: Infinity }}
-                className="h-32 w-32 md:h-40 md:w-40 object-contain"
+                className="h-96 w-96 md:h-112 md:w-112 object-contain"
               />
             </motion.div>
 

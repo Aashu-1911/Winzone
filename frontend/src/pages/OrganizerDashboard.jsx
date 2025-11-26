@@ -1,19 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { getMyCompetitions, deleteCompetition } from '../services/competitionService';
 import CreateCompetitionForm from '../components/CreateCompetitionForm';
-import RegisteredPlayersModal from '../components/RegisteredPlayersModal';
+import TeamRegistrationsModal from '../components/TeamRegistrationsModal';
 
 /**
  * Organizer Dashboard Component
  * Allows organizers to create, view, edit, and delete competitions
  */
 function OrganizerDashboard() {
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const [competitions, setCompetitions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,12 +65,6 @@ function OrganizerDashboard() {
       toast.error(err.message || 'Network error. Please try again.');
       console.error('Delete competition error:', err);
     }
-  };
-
-  // Handle logout
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
   };
 
   // Format date
@@ -294,15 +286,14 @@ function OrganizerDashboard() {
         onSuccess={handleCompetitionCreated}
       />
 
-      {/* Registered Players Modal */}
-      <RegisteredPlayersModal
+      {/* Team Registrations Modal */}
+      <TeamRegistrationsModal
         isOpen={showParticipantsModal}
         onClose={() => {
           setShowParticipantsModal(false);
           setSelectedCompetition(null);
         }}
-        competitionId={selectedCompetition?._id}
-        competitionTitle={selectedCompetition?.title}
+        competition={selectedCompetition}
       />
     </div>
   );

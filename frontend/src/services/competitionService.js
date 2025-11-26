@@ -100,11 +100,12 @@ export const deleteCompetition = async (id) => {
 /**
  * Register player for a competition
  * @param {string} id - Competition ID
+ * @param {Object} registrationData - Registration data (inGamePlayerID, teamName, teamMembers)
  * @returns {Promise<Object>} - Registration success with updated data
  */
-export const registerForCompetition = async (id) => {
+export const registerForCompetition = async (id, registrationData = {}) => {
   try {
-    const response = await api.post(`/api/competitions/${id}/register`);
+    const response = await api.post(`/api/competitions/${id}/register`, registrationData);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Failed to register for competition' };
@@ -152,6 +153,52 @@ export const getMyRegistrations = async () => {
   }
 };
 
+/**
+ * Get all registrations for a competition (organizer only)
+ * @param {string} id - Competition ID
+ * @returns {Promise<Object>} - Registrations with stats
+ */
+export const getCompetitionRegistrations = async (id) => {
+  try {
+    const response = await api.get(`/api/competitions/${id}/registrations`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Failed to fetch registrations' };
+  }
+};
+
+/**
+ * Verify a player registration (organizer only)
+ * @param {string} competitionId - Competition ID
+ * @param {string} registrationId - Registration ID
+ * @param {Object} data - Battle credentials (battleRoomID, battleRoomPassword, timeSlot)
+ * @returns {Promise<Object>} - Success message
+ */
+export const verifyRegistration = async (competitionId, registrationId, data = {}) => {
+  try {
+    const response = await api.put(`/api/competitions/${competitionId}/registrations/${registrationId}/verify`, data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Failed to verify registration' };
+  }
+};
+
+/**
+ * Reject a player registration (organizer only)
+ * @param {string} competitionId - Competition ID
+ * @param {string} registrationId - Registration ID
+ * @param {string} rejectionReason - Reason for rejection
+ * @returns {Promise<Object>} - Success message
+ */
+export const rejectRegistration = async (competitionId, registrationId, rejectionReason = '') => {
+  try {
+    const response = await api.put(`/api/competitions/${competitionId}/registrations/${registrationId}/reject`, { rejectionReason });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Failed to reject registration' };
+  }
+};
+
 export default {
   getAllCompetitions,
   getCompetitionById,
@@ -163,4 +210,7 @@ export default {
   unregisterFromCompetition,
   getCompetitionParticipants,
   getMyRegistrations,
+  getCompetitionRegistrations,
+  verifyRegistration,
+  rejectRegistration,
 };

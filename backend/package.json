@@ -16,6 +16,10 @@
   ],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -23,7 +27,6 @@
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.0",
-    "razorpay": "^2.9.6",
     "recharts": "^3.4.1",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",

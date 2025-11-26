@@ -86,6 +86,26 @@ function Login() {
         {/* Header */}
         <div className="text-center mb-8">
           <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.5, type: "spring" }}
+            className="flex justify-center mb-6"
+          >
+            <motion.img
+              src="/images/winzone.png"
+              alt="WinZone Logo"
+              animate={{ 
+                filter: [
+                  'drop-shadow(0 0 20px rgba(14, 165, 233, 0.6))',
+                  'drop-shadow(0 0 30px rgba(168, 85, 247, 0.6))',
+                  'drop-shadow(0 0 20px rgba(14, 165, 233, 0.6))',
+                ]
+              }}
+              transition={{ duration: 3, repeat: Infinity }}
+              className="h-64 w-64 object-contain"
+            />
+          </motion.div>
+          <motion.div
             animate={{
               textShadow: [
                 '0 0 20px #0ea5e9',

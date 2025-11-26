@@ -308,32 +308,52 @@ function Dashboard() {
             {/* Registered Competitions Grid */}
             {!loading && registeredCompetitions.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {registeredCompetitions.map((competition, index) => (
+                {registeredCompetitions.map((registration, index) => {
+                  const competition = registration.competitionId;
+                  if (!competition) return null;
+                  
+                  return (
                   <motion.div
-                    key={competition._id}
+                    key={registration._id}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.1 }}
                     whileHover={{ y: -5 }}
-                    onClick={() => handleViewDetails(competition)}
-                    className="glass border border-cyan-500/30 rounded-xl p-6 hover:border-cyan-500 transition-all duration-300 cursor-pointer"
+                    className={`glass border rounded-xl p-6 transition-all duration-300 ${
+                      registration.status === 'verified'
+                        ? 'border-cyber-green-500/50 bg-cyber-green-500/5'
+                        : registration.status === 'rejected'
+                        ? 'border-red-500/50 bg-red-500/5'
+                        : 'border-yellow-500/50 bg-yellow-500/5'
+                    }`}
                   >
-                    {/* Status Badge */}
-                    <div className="flex justify-between items-start mb-4">
+                    {/* Status Badges */}
+                    <div className="flex justify-between items-start mb-4 gap-2">
                       <span className={`px-3 py-1 rounded-lg text-xs font-rajdhani font-bold uppercase border ${getStatusColor(competition.status)}`}>
                         {competition.status}
                       </span>
-                      {competition.status === 'ongoing' && (
-                        <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs font-rajdhani font-bold animate-pulse">
-                          🔴 LIVE
-                        </span>
-                      )}
+                      <span className={`px-3 py-1 rounded-lg text-xs font-rajdhani font-bold uppercase border ${
+                        registration.status === 'verified'
+                          ? 'bg-cyber-green-500/20 text-cyber-green-500 border-cyber-green-500/50'
+                          : registration.status === 'rejected'
+                          ? 'bg-red-500/20 text-red-500 border-red-500/50'
+                          : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50'
+                      }`}>
+                        {registration.status === 'verified' ? '✅ Verified' : registration.status === 'rejected' ? '❌ Rejected' : '⏳ Pending'}
+                      </span>
                     </div>
 
                     {/* Title */}
                     <h4 className="font-orbitron text-lg font-bold text-white mb-2 line-clamp-1">
                       {competition.title}
                     </h4>
+
+                    {/* Team Name (if team competition) */}
+                    {registration.teamName && (
+                      <p className="text-sm font-rajdhani text-cyber-purple-500 mb-2">
+                        👥 {registration.teamName}
+                      </p>
+                    )}
 
                     {/* Game Type */}
                     <p className="text-sm font-rajdhani text-cyan-400 mb-3">
@@ -347,18 +367,47 @@ function Dashboard() {
                         <span className="font-rajdhani font-bold text-cyan-400">₹{competition.prizePool}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="font-rajdhani text-gray-400">Participants</span>
-                        <span className="font-rajdhani font-bold text-white">
-                          {competition.participants?.length || 0}/{competition.maxPlayers}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
                         <span className="font-rajdhani text-gray-400">Starts</span>
                         <span className="font-rajdhani text-white text-xs">
                           {formatDate(competition.startTime)}
                         </span>
                       </div>
                     </div>
+
+                    {/* Battle Credentials (for verified registrations) */}
+                    {registration.status === 'verified' && registration.battleRoomID && (
+                      <div className="glass-darker border border-cyber-green-500/30 rounded-lg p-3 mb-4">
+                        <h5 className="font-orbitron text-xs font-bold text-cyber-green-500 mb-2">
+                          🎯 Battle Credentials
+                        </h5>
+                        <div className="space-y-1 text-xs font-rajdhani">
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Room ID:</span>
+                            <span className="text-white font-bold">{registration.battleRoomID}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Password:</span>
+                            <span className="text-white font-bold">{registration.battleRoomPassword}</span>
+                          </div>
+                          {registration.timeSlot && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Time Slot:</span>
+                              <span className="text-white font-bold">{registration.timeSlot}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rejection Reason */}
+                    {registration.status === 'rejected' && registration.rejectionReason && (
+                      <div className="glass-darker border border-red-500/30 rounded-lg p-3 mb-4">
+                        <h5 className="font-orbitron text-xs font-bold text-red-500 mb-1">
+                          Rejection Reason
+                        </h5>
+                        <p className="text-xs font-rajdhani text-gray-400">{registration.rejectionReason}</p>
+                      </div>
+                    )}
 
                     {/* Action Button */}
                     <motion.button
@@ -369,19 +418,26 @@ function Dashboard() {
                         handleViewDetails(competition);
                       }}
                       className={`w-full py-2 rounded-lg font-rajdhani font-bold transition-all ${
-                        competition.status === 'ongoing'
+                        registration.status === 'verified' && competition.status === 'ongoing'
                           ? 'bg-gradient-to-r from-green-500 to-cyan-500 text-white shadow-neon-green animate-pulse'
-                          : 'bg-cyan-500/20 border border-cyan-500 text-cyan-400 hover:bg-cyan-500/30'
+                          : registration.status === 'verified'
+                          ? 'bg-cyan-500/20 border border-cyan-500 text-cyan-400 hover:bg-cyan-500/30'
+                          : registration.status === 'pending'
+                          ? 'bg-yellow-500/20 border border-yellow-500 text-yellow-400'
+                          : 'bg-red-500/20 border border-red-500 text-red-400'
                       }`}
+                      disabled={registration.status === 'rejected'}
                     >
-                      {competition.status === 'ongoing' 
-                        ? '▶ Join Now' 
-                        : competition.status === 'upcoming'
-                        ? '📋 View Details'
-                        : '📊 View Results'}
+                      {registration.status === 'verified' && competition.status === 'ongoing'
+                        ? '▶ Join Now'
+                        : registration.status === 'verified'
+                        ? '✓ Verified - Ready'
+                        : registration.status === 'pending'
+                        ? '⏳ Awaiting Approval'
+                        : '❌ Registration Rejected'}
                     </motion.button>
                   </motion.div>
-                ))}
+                )})}
               </div>
             )}
           </motion.div>

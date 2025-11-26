@@ -16,6 +16,7 @@ const Navbar = () => {
   const navLinks = isAuthenticated() ? [
     { name: 'Dashboard', path: user?.role === 'organizer' ? '/organizer-dashboard' : '/dashboard' },
     { name: 'Competitions', path: '/competitions' },
+    ...(user?.role === 'organizer' ? [{ name: 'Future Scope', path: '/future-scope' }] : []),
     { name: 'Analytics', path: '/analytics' },
   ] : [
     { name: 'Home', path: '/' },
@@ -35,11 +36,11 @@ const Navbar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 group">
             <motion.img
-              src="/logo.png"
+              src="/images/winzone.png"
               alt="WinZone Logo"
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ duration: 0.3 }}
-              className="h-12 w-12 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]"
+              className="h-32 w-32 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]"
             />
             <span className="font-orbitron text-3xl font-black tracking-wider text-white drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">
               WINZONE

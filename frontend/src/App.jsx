@@ -13,6 +13,7 @@ import OrganizerDashboard from './pages/OrganizerDashboard';
 import Competitions from './pages/Competitions';
 import LiveMatch from './pages/LiveMatch';
 import Analytics from './pages/Analytics';
+import FutureScope from './pages/FutureScope';
 
 function App() {
   return (
@@ -69,6 +70,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <LiveMatch />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/future-scope"
+                  element={
+                    <ProtectedRoute>
+                      <FutureScope />
                     </ProtectedRoute>
                   }
                 />

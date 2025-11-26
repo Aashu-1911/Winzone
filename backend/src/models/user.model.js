@@ -140,12 +140,19 @@ const userSchema = new mongoose.Schema(
       default: '',
       index: true,
     },
-    // Email verification token
-    emailVerificationToken: {
+    // OTP verification (6-digit code, 10 min expiry)
+    otpCode: {
       type: String,
+      default: '',
     },
-    emailVerificationTokenExpires: {
+    otpExpires: {
       type: Date,
+    },
+    // In-game player ID (required for registration)
+    inGamePlayerID: {
+      type: String,
+      trim: true,
+      default: '',
     },
   },
   {
