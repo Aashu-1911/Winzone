@@ -1,0 +1,35 @@
+import express from 'express';
+import {
+  registerUser,
+  loginUser,
+  getCurrentUser,
+} from '../controllers/auth.controller.js';
+import authMiddleware from '../middleware/auth.middleware.js';
+
+const router = express.Router();
+
+/**
+ * @route   POST /api/auth/register
+ * @desc    Register a new user
+ * @access  Public
+ * @body    { name, email, password, role?, collegeName?, profileImage? }
+ */
+router.post('/register', registerUser);
+
+/**
+ * @route   POST /api/auth/login
+ * @desc    Login user and get JWT token
+ * @access  Public
+ * @body    { email, password }
+ */
+router.post('/login', loginUser);
+
+/**
+ * @route   GET /api/auth/me
+ * @desc    Get current user profile
+ * @access  Private (requires valid JWT token)
+ * @header  Authorization: Bearer <token>
+ */
+router.get('/me', authMiddleware, getCurrentUser);
+
+export default router;

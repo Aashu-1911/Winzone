@@ -1,0 +1,606 @@
+{
+  "info": {
+    "name": "WinZone Phase 7 - Wallet & Payout",
+    "description": "Complete API collection for testing WinZone wallet and payout features",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "playerToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "payoutId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Register Player",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('playerToken', jsonData.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Player\",\n  \"email\": \"player@test.com\",\n  \"password\": \"password123\",\n  \"role\": \"player\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Register Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('adminToken', jsonData.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"admin@test.com\",\n  \"password\": \"password123\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login Player",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('playerToken', jsonData.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"player@test.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('adminToken', jsonData.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Wallet Operations",
+      "item": [
+        {
+          "name": "Get Wallet Balance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{playerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/wallet",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "wallet"]
+            }
+          }
+        },
+        {
+          "name": "Get Transaction History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{playerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/wallet/transactions?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "wallet", "transactions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "type",
+                  "value": "reward",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Top-Up Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('sessionId', jsonData.data.sessionId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{playerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000,\n  \"currency\": \"INR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/wallet/topup",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "wallet", "topup"]
+            }
+          }
+        },
+        {
+          "name": "Verify Top-Up",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{playerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/wallet/topup/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "wallet", "topup", "verify"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Payout Requests",
+      "item": [
+        {
+          "name": "Create Payout Request (UPI)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('payoutId', jsonData.data._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{playerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500,\n  \"method\": {\n    \"type\": \"upi\",\n    \"details\": {\n      \"upiId\": \"player@paytm\",\n      \"name\": \"Test Player\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/wallet/payout-request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "wallet", "payout-request"]
+            }
+          }
+        },
+        {
+          "name": "Create Payout Request (Bank)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{playerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000,\n  \"method\": {\n    \"type\": \"bank\",\n    \"details\": {\n      \"accountNumber\": \"1234567890\",\n      \"ifsc\": \"SBIN0001234\",\n      \"accountHolderName\": \"Test Player\",\n      \"bankName\": \"State Bank of India\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/wallet/payout-request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "wallet", "payout-request"]
+            }
+          }
+        },
+        {
+          "name": "Get My Payout Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{playerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/wallet/payout-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "wallet", "payout-requests"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Admin - Payout Management",
+      "item": [
+        {
+          "name": "List All Payout Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/payouts?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "payouts"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "requested",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve Payout Request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Approved for processing\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/payouts/{{payoutId}}/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "payouts", "{{payoutId}}", "approve"]
+            }
+          }
+        },
+        {
+          "name": "Reject Payout Request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Invalid bank details provided\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/payouts/{{payoutId}}/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "payouts", "{{payoutId}}", "reject"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Admin - Transaction Management",
+      "item": [
+        {
+          "name": "Get All Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/admin/all?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "admin", "all"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "type",
+                  "value": "reward",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "completed",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{playerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/my?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "my"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Payment Webhooks",
+      "item": [
+        {
+          "name": "Webhook - Checkout Completed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-webhook-signature",
+                "value": "mock_signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"mock_session_webhook_test\",\n      \"payment_status\": \"paid\",\n      \"amount_total\": 100000,\n      \"currency\": \"inr\",\n      \"client_reference_id\": \"REPLACE_WITH_USER_ID\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "webhook"]
+            }
+          }
+        },
+        {
+          "name": "Webhook - Payment Intent Succeeded",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-webhook-signature",
+                "value": "mock_signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"payment_intent.succeeded\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"pi_test_123\",\n      \"status\": \"succeeded\",\n      \"amount\": 100000,\n      \"currency\": \"inr\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "webhook"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Health Check",
+      "item": [
+        {
+          "name": "Server Health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
